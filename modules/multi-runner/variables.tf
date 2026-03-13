@@ -725,6 +725,12 @@ variable "metrics" {
   default = {}
 }
 
+variable "create_api_gateway" {
+  description = "Whether to create the API Gateway. Set to false when using an external ALB."
+  type        = bool
+  default     = true
+}
+
 variable "eventbridge" {
   description = "Enable the use of EventBridge by the module. By enabling this feature events will be put on the EventBridge by the webhook instead of directly dispatching to queues for scaling."
   type = object({

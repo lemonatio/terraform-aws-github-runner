@@ -40,7 +40,7 @@ variable "config" {
       capture_error         = optional(bool, false)
     }), {})
     lambda_tags       = optional(map(string), {})
-    api_gw_source_arn = string
+    api_gw_source_arn = optional(string, null)
     ssm_parameter_runner_matcher_config = list(object({
       name    = string
       arn     = string

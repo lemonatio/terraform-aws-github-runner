@@ -77,7 +77,7 @@ module "direct" {
     github_app_parameters                 = var.github_app_parameters,
     tracing_config                        = var.tracing_config,
     lambda_tags                           = var.lambda_tags,
-    api_gw_source_arn                     = "${aws_apigatewayv2_api.webhook.execution_arn}/*/*/${local.webhook_endpoint}"
+    api_gw_source_arn                     = var.create_api_gateway ? "${aws_apigatewayv2_api.webhook[0].execution_arn}/*/*/${local.webhook_endpoint}" : null
     ssm_parameter_runner_matcher_config = [
       for p in aws_ssm_parameter.runner_matcher_config : {
         name    = p.name
@@ -118,7 +118,7 @@ module "eventbridge" {
     github_app_parameters                 = var.github_app_parameters,
     tracing_config                        = var.tracing_config,
     lambda_tags                           = var.lambda_tags,
-    api_gw_source_arn                     = "${aws_apigatewayv2_api.webhook.execution_arn}/*/*/${local.webhook_endpoint}"
+    api_gw_source_arn                     = var.create_api_gateway ? "${aws_apigatewayv2_api.webhook[0].execution_arn}/*/*/${local.webhook_endpoint}" : null
     ssm_parameter_runner_matcher_config = [
       for p in aws_ssm_parameter.runner_matcher_config : {
         name    = p.name

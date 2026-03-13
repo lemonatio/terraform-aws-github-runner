@@ -202,6 +202,12 @@ variable "matcher_config_parameter_store_tier" {
   }
 }
 
+variable "create_api_gateway" {
+  description = "Whether to create the API Gateway. Set to false when using an external ALB."
+  type        = bool
+  default     = true
+}
+
 variable "eventbridge" {
   description = <<EOF
     Enable the use of EventBridge by the module. By enabling this feature events will be put on the EventBridge by the webhook instead of directly dispatching to queues for scaling.

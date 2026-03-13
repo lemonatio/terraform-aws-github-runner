@@ -66,6 +66,7 @@ resource "aws_cloudwatch_log_group" "webhook" {
 }
 
 resource "aws_lambda_permission" "webhook" {
+  count         = var.config.api_gw_source_arn != null ? 1 : 0
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.webhook.function_name
@@ -75,6 +76,11 @@ resource "aws_lambda_permission" "webhook" {
   lifecycle {
     replace_triggered_by = [null_resource.github_app_parameters]
   }
+}
+
+moved {
+  from = aws_lambda_permission.webhook
+  to   = aws_lambda_permission.webhook[0]
 }
 
 data "aws_iam_policy_document" "lambda_assume_role_policy" {
