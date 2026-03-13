@@ -1,5 +1,6 @@
 module "webhook" {
   source                              = "../webhook"
+  create_api_gateway                  = var.create_api_gateway
   prefix                              = var.prefix
   tags                                = local.tags
   kms_key_arn                         = var.kms_key_arn

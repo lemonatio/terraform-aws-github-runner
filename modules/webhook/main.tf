@@ -4,15 +4,17 @@ locals {
 }
 
 resource "aws_apigatewayv2_api" "webhook" {
+  count         = var.create_api_gateway ? 1 : 0
   name          = "${var.prefix}-github-action-webhook"
   protocol_type = "HTTP"
   tags          = var.tags
 }
 
 resource "aws_apigatewayv2_route" "webhook" {
-  api_id    = aws_apigatewayv2_api.webhook.id
+  count     = var.create_api_gateway ? 1 : 0
+  api_id    = aws_apigatewayv2_api.webhook[0].id
   route_key = "POST /${local.webhook_endpoint}"
-  target    = "integrations/${aws_apigatewayv2_integration.webhook.id}"
+  target    = "integrations/${aws_apigatewayv2_integration.webhook[0].id}"
 
   lifecycle {
     ignore_changes = [
@@ -26,6 +28,8 @@ resource "aws_apigatewayv2_route" "webhook" {
 }
 
 resource "aws_apigatewayv2_stage" "webhook" {
+  count = var.create_api_gateway ? 1 : 0
+
   lifecycle {
     ignore_changes = [
       # see bug https://github.com/terraform-providers/terraform-provider-aws/issues/12893
@@ -35,7 +39,7 @@ resource "aws_apigatewayv2_stage" "webhook" {
     ]
   }
 
-  api_id      = aws_apigatewayv2_api.webhook.id
+  api_id      = aws_apigatewayv2_api.webhook[0].id
   name        = "$default"
   auto_deploy = true
   dynamic "access_log_settings" {
@@ -49,6 +53,8 @@ resource "aws_apigatewayv2_stage" "webhook" {
 }
 
 resource "aws_apigatewayv2_integration" "webhook" {
+  count = var.create_api_gateway ? 1 : 0
+
   lifecycle {
     ignore_changes = [
       # not terraform managed
@@ -56,11 +62,31 @@ resource "aws_apigatewayv2_integration" "webhook" {
     ]
   }
 
-  api_id           = aws_apigatewayv2_api.webhook.id
+  api_id           = aws_apigatewayv2_api.webhook[0].id
   integration_type = "AWS_PROXY"
 
   connection_type    = "INTERNET"
   description        = "GitHub App webhook for receiving build events."
   integration_method = "POST"
   integration_uri    = !var.eventbridge.enable ? module.direct[0].webhook.lambda.invoke_arn : module.eventbridge[0].webhook.lambda.invoke_arn
+}
+
+moved {
+  from = aws_apigatewayv2_api.webhook
+  to   = aws_apigatewayv2_api.webhook[0]
+}
+
+moved {
+  from = aws_apigatewayv2_route.webhook
+  to   = aws_apigatewayv2_route.webhook[0]
+}
+
+moved {
+  from = aws_apigatewayv2_stage.webhook
+  to   = aws_apigatewayv2_stage.webhook[0]
+}
+
+moved {
+  from = aws_apigatewayv2_integration.webhook
+  to   = aws_apigatewayv2_integration.webhook[0]
 }

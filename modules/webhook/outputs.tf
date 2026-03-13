@@ -1,5 +1,5 @@
 output "gateway" {
-  value = aws_apigatewayv2_api.webhook
+  value = var.create_api_gateway ? aws_apigatewayv2_api.webhook[0] : null
 }
 
 output "endpoint_relative_path" {
