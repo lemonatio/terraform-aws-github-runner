@@ -15,4 +15,4 @@ jobs:
       - name: Sync fork
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh repo sync ${{ github.repository }} --force
+        run: gh repo sync ${{ github.repository }}
