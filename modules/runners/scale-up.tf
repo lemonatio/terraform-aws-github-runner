@@ -6,8 +6,6 @@ locals {
     delayBackoff   = var.job_retry.delay_backoff
     queueUrl       = module.job_retry[0].job_retry_check_queue.url
   } : {}
-
-  github_app_credentials_in_secrets_manager = can(regex("^arn:[^:]*:secretsmanager:", var.github_app_parameters.id.arn))
 }
 
 resource "aws_lambda_function" "scale_up" {

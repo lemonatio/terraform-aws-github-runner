@@ -4,8 +4,6 @@ locals {
     "windows" = 15
     "linux"   = 5
   }
-
-  github_app_credentials_in_secrets_manager = can(regex("^arn:[^:]*:secretsmanager:", var.github_app_parameters.id.arn))
 }
 resource "aws_lambda_function" "scale_down" {
   s3_bucket         = var.lambda_s3_bucket != null ? var.lambda_s3_bucket : null
