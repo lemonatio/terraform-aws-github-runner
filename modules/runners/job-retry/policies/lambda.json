@@ -1,28 +1,23 @@
 {
   "Version": "2012-10-17",
   "Statement": [
-%{ if !github_app_credentials_in_secrets_manager ~}
+%{ if length(github_app_ssm_parameter_arns) > 0 ~}
     {
       "Effect": "Allow",
       "Action": [
-        "ssm:GetParameter"
+        "ssm:GetParameter",
+        "ssm:GetParameters"
       ],
-      "Resource": [
-        "${github_app_key_base64_arn}",
-        "${github_app_id_arn}"
-      ]
+      "Resource": ${jsonencode(github_app_ssm_parameter_arns)}
     },
 %{ endif ~}
-%{ if github_app_credentials_in_secrets_manager ~}
+%{ if length(github_app_secretsmanager_arns) > 0 ~}
     {
       "Effect": "Allow",
       "Action": [
         "secretsmanager:GetSecretValue"
       ],
-      "Resource": [
-        "${github_app_key_base64_arn}",
-        "${github_app_id_arn}"
-      ]
+      "Resource": ${jsonencode(github_app_secretsmanager_arns)}
     },
 %{ endif ~}
     {

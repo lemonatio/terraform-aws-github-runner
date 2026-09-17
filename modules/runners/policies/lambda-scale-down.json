@@ -42,38 +42,8 @@
           "ec2:ResourceTag/gh:environment": "${environment}"
         }
       }
-    },
-%{ if !github_app_credentials_in_secrets_manager ~}
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ssm:GetParameter"
-      ],
-      "Resource": [
-        "${github_app_key_base64_arn}",
-        "${github_app_id_arn}"
-      ]
-%{ endif ~}
-%{ if github_app_credentials_in_secrets_manager ~}
-    {
-      "Effect": "Allow",
-      "Action": [
-        "secretsmanager:GetSecretValue"
-      ],
-      "Resource": [
-        "${github_app_key_base64_arn}",
-        "${github_app_id_arn}"
-      ]
-%{ endif ~}
-%{ if kms_key_arn != "" ~}
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "kms:Decrypt"
-      ],
-      "Resource": "${kms_key_arn}"
-%{ endif ~}
-    }
+    }%{ for statement in extra_statements ~},
+    ${jsonencode(statement)}%{ endfor ~}
+
   ]
 }

@@ -6,6 +6,7 @@ import {
 import {
   GetParameterCommand,
   GetParameterCommandOutput,
+  GetParametersCommand,
   PutParameterCommand,
   PutParameterCommandOutput,
   SSMClient,
@@ -14,7 +15,7 @@ import 'aws-sdk-client-mock-jest/vitest';
 import { mockClient } from 'aws-sdk-client-mock';
 import nock from 'nock';
 
-import { getParameter, putParameter, SSM_ADVANCED_TIER_THRESHOLD } from '.';
+import { getParameter, getParameters, putParameter, resetSSMClient, ssmClient, SSM_ADVANCED_TIER_THRESHOLD } from '.';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const mockSSMClient = mockClient(SSMClient);
@@ -25,6 +26,7 @@ beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
   process.env = { ...cleanEnv };
+  resetSSMClient();
   nock.disableNetConnect();
 });
 
@@ -296,5 +298,162 @@ describe('Test getParameter with Secrets Manager references', () => {
     expect(error).toBeInstanceOf(Error);
     expect(error?.message).toContain(secretArn);
     expect(error?.message).not.toContain(secretValue);
+  });
+});
+
+describe('Test getParameters (batch)', () => {
+  beforeEach(() => {
+    mockSSMClient.reset();
+  });
+
+  it('returns multiple parameters in a single call', async () => {
+    mockSSMClient.on(GetParametersCommand).resolves({
+      Parameters: [
+        { Name: '/app/param1', Value: 'value1' },
+        { Name: '/app/param2', Value: 'value2' },
+      ],
+    });
+
+    const result = await getParameters(['/app/param1', '/app/param2']);
+
+    expect(result).toEqual(
+      new Map([
+        ['/app/param1', 'value1'],
+        ['/app/param2', 'value2'],
+      ]),
+    );
+    expect(mockSSMClient).toHaveReceivedCommandWith(GetParametersCommand, {
+      Names: ['/app/param1', '/app/param2'],
+      WithDecryption: true,
+    });
+  });
+
+  it('returns empty map for empty input', async () => {
+    const result = await getParameters([]);
+
+    expect(result).toEqual(new Map());
+    expect(mockSSMClient).not.toHaveReceivedCommand(GetParametersCommand);
+  });
+
+  it('chunks requests when more than 10 parameters', async () => {
+    const names = Array.from({ length: 12 }, (_, i) => `/app/param${i}`);
+
+    mockSSMClient
+      .on(GetParametersCommand, { Names: names.slice(0, 10), WithDecryption: true })
+      .resolves({
+        Parameters: names.slice(0, 10).map((name) => ({ Name: name, Value: `val-${name}` })),
+      })
+      .on(GetParametersCommand, { Names: names.slice(10), WithDecryption: true })
+      .resolves({
+        Parameters: names.slice(10).map((name) => ({ Name: name, Value: `val-${name}` })),
+      });
+
+    const result = await getParameters(names);
+
+    expect(result.size).toBe(12);
+    expect(mockSSMClient).toHaveReceivedCommandTimes(GetParametersCommand, 2);
+    for (const name of names) {
+      expect(result.get(name)).toBe(`val-${name}`);
+    }
+  });
+
+  it('omits parameters with missing Name or Value', async () => {
+    mockSSMClient.on(GetParametersCommand).resolves({
+      Parameters: [
+        { Name: '/app/good', Value: 'value' },
+        { Name: '/app/no-value', Value: undefined },
+        { Name: undefined, Value: 'orphan' },
+      ],
+    });
+
+    const result = await getParameters(['/app/good', '/app/no-value']);
+
+    expect(result).toEqual(new Map([['/app/good', 'value']]));
+  });
+
+  it('propagates errors from SSM API', async () => {
+    mockSSMClient.on(GetParametersCommand).rejects(new Error('AccessDenied'));
+
+    await expect(getParameters(['/app/param1'])).rejects.toThrow('AccessDenied');
+  });
+
+  it('handles response with empty Parameters array', async () => {
+    mockSSMClient.on(GetParametersCommand).resolves({
+      Parameters: [],
+    });
+
+    const result = await getParameters(['/app/missing']);
+
+    expect(result).toEqual(new Map());
+  });
+});
+
+describe('SSM client configuration', () => {
+  it('configures adaptive retry with a raised attempt cap', async () => {
+    const config = ssmClient().config;
+
+    expect(await config.maxAttempts()).toBe(10);
+    expect(config.retryMode).toBe('adaptive');
+  });
+
+  it('reuses one client so adaptive rate-sensing state survives across calls', async () => {
+    // Adaptive retry keeps its token bucket on the client instance; a fresh client
+    // per call would silently downgrade `adaptive` to plain retries.
+    mockSSMClient.on(GetParametersCommand).resolves({ Parameters: [] });
+
+    await getParameters(['/app/one']);
+    await getParameters(['/app/two']);
+
+    expect(ssmClient()).toBe(ssmClient());
+  });
+
+  it('picks up the region from the environment on first use', async () => {
+    process.env.AWS_REGION = 'eu-north-1';
+    resetSSMClient();
+
+    expect(await ssmClient().config.region()).toBe('eu-north-1');
+  });
+});
+
+describe('Test getParameters with Secrets Manager references', () => {
+  const secretArn = 'arn:aws:secretsmanager:us-east-1:123456789012:secret:my-secret-AbCdEf';
+
+  beforeEach(() => {
+    mockSSMClient.reset();
+  });
+
+  it('resolves a mix of SSM parameters and Secrets Manager references in one call', async () => {
+    mockSSMClient.on(GetParametersCommand).resolves({
+      Parameters: [{ Name: '/app/param1', Value: 'ssm-value' }],
+    });
+    mockSecretsManagerClient.on(GetSecretValueCommand).resolves({
+      SecretString: JSON.stringify({ id: 123456 }),
+      $metadata: { httpStatusCode: 200 },
+    });
+
+    const result = await getParameters(['/app/param1', `${secretArn}#id`]);
+
+    expect(result).toEqual(
+      new Map([
+        ['/app/param1', 'ssm-value'],
+        [`${secretArn}#id`, '123456'],
+      ]),
+    );
+    expect(mockSSMClient).toHaveReceivedCommandWith(GetParametersCommand, {
+      Names: ['/app/param1'],
+      WithDecryption: true,
+    });
+  });
+
+  it('does not call SSM when every name is a Secrets Manager reference', async () => {
+    mockSecretsManagerClient.on(GetSecretValueCommand).resolves({
+      SecretString: 'raw-secret-value',
+      $metadata: { httpStatusCode: 200 },
+    });
+
+    const result = await getParameters([secretArn]);
+
+    expect(result).toEqual(new Map([[secretArn, 'raw-secret-value']]));
+    expect(mockSSMClient).not.toHaveReceivedCommand(GetParametersCommand);
   });
 });
