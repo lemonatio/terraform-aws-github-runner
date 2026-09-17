@@ -9,21 +9,21 @@ locals {
   }
 
   scale_down_extra_statements = concat(
-    length(local.github_app_ssm_parameter_arns) > 0 ? [{
+    [for _ in(length(local.github_app_ssm_parameter_arns) > 0 ? [true] : []) : {
       Effect   = "Allow"
       Action   = ["ssm:GetParameter"]
       Resource = local.github_app_ssm_parameter_arns
-    }] : [],
-    length(local.github_app_secretsmanager_arns) > 0 ? [{
+    }],
+    [for _ in(length(local.github_app_secretsmanager_arns) > 0 ? [true] : []) : {
       Effect   = "Allow"
       Action   = ["secretsmanager:GetSecretValue"]
       Resource = local.github_app_secretsmanager_arns
-    }] : [],
-    local.kms_key_arn != "" ? [{
+    }],
+    [for _ in(local.kms_key_arn != "" ? [true] : []) : {
       Effect   = "Allow"
       Action   = ["kms:Decrypt"]
       Resource = local.kms_key_arn
-    }] : [],
+    }],
   )
 }
 resource "aws_lambda_function" "scale_down" {

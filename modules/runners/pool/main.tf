@@ -107,38 +107,36 @@ locals {
   github_app_secretsmanager_arns = [for arn in local.github_app_all_credential_arns : arn if can(regex("^arn:[^:]*:secretsmanager:", arn))]
 
   pool_extra_statements = concat(
-    length(local.github_app_ssm_parameter_arns) > 0 ? [{
+    [for _ in(length(local.github_app_ssm_parameter_arns) > 0 ? [true] : []) : {
       Effect   = "Allow"
       Action   = ["ssm:GetParameter"]
       Resource = local.github_app_ssm_parameter_arns
-    }] : [],
-    length(local.github_app_secretsmanager_arns) > 0 ? [{
+    }],
+    [for _ in(length(local.github_app_secretsmanager_arns) > 0 ? [true] : []) : {
       Effect   = "Allow"
       Action   = ["secretsmanager:GetSecretValue"]
       Resource = local.github_app_secretsmanager_arns
-    }] : [],
-    var.config.kms_key_arn != "" ? [{
+    }],
+    [for _ in(var.config.kms_key_arn != "" ? [true] : []) : {
       Effect   = "Allow"
       Action   = ["kms:Decrypt"]
       Resource = var.config.kms_key_arn
-    }] : [],
-    var.config.ami_kms_key_arn != "" ? [
-      {
-        Effect   = "Allow"
-        Action   = ["kms:DescribeKey", "kms:ReEncrypt*", "kms:Decrypt"]
-        Resource = var.config.ami_kms_key_arn
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["kms:CreateGrant"]
-        Resource = var.config.ami_kms_key_arn
-        Condition = {
-          Bool = {
-            "aws:ViaAWSService" = "true"
-          }
+    }],
+    [for _ in(var.config.ami_kms_key_arn != "" ? [true] : []) : {
+      Effect   = "Allow"
+      Action   = ["kms:DescribeKey", "kms:ReEncrypt*", "kms:Decrypt"]
+      Resource = var.config.ami_kms_key_arn
+    }],
+    [for _ in(var.config.ami_kms_key_arn != "" ? [true] : []) : {
+      Effect   = "Allow"
+      Action   = ["kms:CreateGrant"]
+      Resource = var.config.ami_kms_key_arn
+      Condition = {
+        Bool = {
+          "aws:ViaAWSService" = "true"
         }
-      },
-    ] : [],
+      }
+    }],
   )
 }
 
