@@ -97,20 +97,57 @@ resource "aws_iam_role" "pool" {
   tags                 = var.config.tags
 }
 
+locals {
+  github_app_all_credential_arns = concat(
+    [for p in var.config.github_app_parameters.id : p.arn],
+    [for p in var.config.github_app_parameters.key_base64 : p.arn],
+    [for p in var.config.github_app_parameters.installation_id : p.arn if p != null],
+  )
+  github_app_ssm_parameter_arns  = [for arn in local.github_app_all_credential_arns : arn if !can(regex("^arn:[^:]*:secretsmanager:", arn))]
+  github_app_secretsmanager_arns = [for arn in local.github_app_all_credential_arns : arn if can(regex("^arn:[^:]*:secretsmanager:", arn))]
+
+  pool_extra_statements = concat(
+    [for _ in(length(local.github_app_ssm_parameter_arns) > 0 ? [true] : []) : {
+      Effect   = "Allow"
+      Action   = ["ssm:GetParameter"]
+      Resource = local.github_app_ssm_parameter_arns
+    }],
+    [for _ in(length(local.github_app_secretsmanager_arns) > 0 ? [true] : []) : {
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue"]
+      Resource = local.github_app_secretsmanager_arns
+    }],
+    [for _ in(var.config.kms_key_arn != "" ? [true] : []) : {
+      Effect   = "Allow"
+      Action   = ["kms:Decrypt"]
+      Resource = var.config.kms_key_arn
+    }],
+    [for _ in(var.config.ami_kms_key_arn != "" ? [true] : []) : {
+      Effect   = "Allow"
+      Action   = ["kms:DescribeKey", "kms:ReEncrypt*", "kms:Decrypt"]
+      Resource = var.config.ami_kms_key_arn
+    }],
+    [for _ in(var.config.ami_kms_key_arn != "" ? [true] : []) : {
+      Effect   = "Allow"
+      Action   = ["kms:CreateGrant"]
+      Resource = var.config.ami_kms_key_arn
+      Condition = {
+        Bool = {
+          "aws:ViaAWSService" = "true"
+        }
+      }
+    }],
+  )
+}
+
 resource "aws_iam_role_policy" "pool" {
   name = "pool-policy"
   role = aws_iam_role.pool.name
   policy = templatefile("${path.module}/policies/lambda-pool.json", {
     arn_ssm_parameters_path_config = var.config.arn_ssm_parameters_path_config
     arn_runner_instance_role       = var.config.runner.role.arn
-    github_app_parameter_arns = jsonencode(concat(
-      [for p in var.config.github_app_parameters.id : p.arn],
-      [for p in var.config.github_app_parameters.key_base64 : p.arn],
-      [for p in var.config.github_app_parameters.installation_id : p.arn if p != null],
-    ))
-    kms_key_arn              = var.config.kms_key_arn
-    ami_kms_key_arn          = var.config.ami_kms_key_arn
-    ssm_ami_id_parameter_arn = var.config.ami_id_ssm_parameter_arn
+    ssm_ami_id_parameter_arn       = var.config.ami_id_ssm_parameter_arn
+    extra_statements               = local.pool_extra_statements
   })
 }
 

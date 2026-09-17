@@ -1,12 +1,30 @@
 locals {
   # Windows Runners can take their sweet time to do anything
   # For an AWS vended AMI with an x86 Mac instance or an Apple silicon Mac instance,
-  # the launch time can range from approximately 6 minutes to 20 minutes. 
+  # the launch time can range from approximately 6 minutes to 20 minutes.
   min_runtime_defaults = {
     "windows" = 15
     "linux"   = 5
     "osx"     = 20
   }
+
+  scale_down_extra_statements = concat(
+    [for _ in(length(local.github_app_ssm_parameter_arns) > 0 ? [true] : []) : {
+      Effect   = "Allow"
+      Action   = ["ssm:GetParameter"]
+      Resource = local.github_app_ssm_parameter_arns
+    }],
+    [for _ in(length(local.github_app_secretsmanager_arns) > 0 ? [true] : []) : {
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue"]
+      Resource = local.github_app_secretsmanager_arns
+    }],
+    [for _ in(local.kms_key_arn != "" ? [true] : []) : {
+      Effect   = "Allow"
+      Action   = ["kms:Decrypt"]
+      Resource = local.kms_key_arn
+    }],
+  )
 }
 resource "aws_lambda_function" "scale_down" {
   s3_bucket         = var.lambda_s3_bucket != null ? var.lambda_s3_bucket : null
@@ -102,13 +120,8 @@ resource "aws_iam_role_policy" "scale_down" {
   name = "scale-down-policy"
   role = aws_iam_role.scale_down.name
   policy = templatefile("${path.module}/policies/lambda-scale-down.json", {
-    environment = var.prefix
-    github_app_parameter_arns = jsonencode(concat(
-      [for p in var.github_app_parameters.id : p.arn],
-      [for p in var.github_app_parameters.key_base64 : p.arn],
-      [for p in var.github_app_parameters.installation_id : p.arn if p != null],
-    ))
-    kms_key_arn = local.kms_key_arn
+    environment      = var.prefix
+    extra_statements = local.scale_down_extra_statements
   })
 }
 
