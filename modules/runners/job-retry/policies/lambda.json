@@ -1,14 +1,25 @@
 {
   "Version": "2012-10-17",
   "Statement": [
+%{ if length(github_app_ssm_parameter_arns) > 0 ~}
     {
       "Effect": "Allow",
       "Action": [
         "ssm:GetParameter",
         "ssm:GetParameters"
       ],
-      "Resource": ${github_app_parameter_arns}
+      "Resource": ${jsonencode(github_app_ssm_parameter_arns)}
     },
+%{ endif ~}
+%{ if length(github_app_secretsmanager_arns) > 0 ~}
+    {
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": ${jsonencode(github_app_secretsmanager_arns)}
+    },
+%{ endif ~}
     {
       "Effect": "Allow",
       "Action": [

@@ -125,15 +125,15 @@ resource "aws_iam_role_policy" "scale_up" {
     arn_runner_instance_role = var.iam_overrides["override_runner_role"] ? var.iam_overrides["runner_role_arn"] : aws_iam_role.runner[0].arn
     environment              = var.prefix
     sqs_arn                  = var.sqs_build_queue.arn
-    github_app_parameter_arns = jsonencode(concat(
-      [for p in var.github_app_parameters.id : p.arn],
-      [for p in var.github_app_parameters.key_base64 : p.arn],
-      [for p in var.github_app_parameters.installation_id : p.arn if p != null],
-      ["arn:${var.aws_partition}:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.ssm_paths.root}/${var.ssm_paths.config}/*"]
-    ))
-    kms_key_arn              = local.kms_key_arn
-    ami_kms_key_arn          = local.ami_kms_key_arn
-    ssm_ami_id_parameter_arn = local.ami_id_ssm_module_managed ? aws_ssm_parameter.runner_ami_id[0].arn : var.ami.id_ssm_parameter_arn
+    ssm_get_parameter_arns = concat(
+      local.github_app_ssm_parameter_arns,
+      ["arn:${var.aws_partition}:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.ssm_paths.root}/${var.ssm_paths.config}/*"],
+      [local.ami_id_ssm_module_managed ? aws_ssm_parameter.runner_ami_id[0].arn : var.ami.id_ssm_parameter_arn],
+    )
+    github_app_secretsmanager_arns = local.github_app_secretsmanager_arns
+    kms_key_arn                    = local.kms_key_arn
+    ami_kms_key_arn                = local.ami_kms_key_arn
+    ssm_ami_id_parameter_arn       = local.ami_id_ssm_module_managed ? aws_ssm_parameter.runner_ami_id[0].arn : var.ami.id_ssm_parameter_arn
   })
 }
 

@@ -42,23 +42,8 @@
           "ec2:ResourceTag/gh:environment": "${environment}"
         }
       }
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ssm:GetParameter",
-        "ssm:GetParameters"
-      ],
-      "Resource": ${github_app_parameter_arns}
-%{ if kms_key_arn != "" ~}
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "kms:Decrypt"
-      ],
-      "Resource": "${kms_key_arn}"
-%{ endif ~}
-    }
+    }%{ for statement in extra_statements ~},
+    ${jsonencode(statement)}%{ endfor ~}
+
   ]
 }

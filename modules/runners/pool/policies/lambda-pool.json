@@ -47,46 +47,8 @@
             "Resource": [
                 "${ssm_ami_id_parameter_arn}"
             ]
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "ssm:GetParameter",
-                "ssm:GetParameters"
-            ],
-            "Resource": ${github_app_parameter_arns}
-%{ if kms_key_arn != "" ~}
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "kms:Decrypt"
-            ],
-            "Resource": "${kms_key_arn}"
-%{ endif ~}
-%{ if ami_kms_key_arn != "" ~}
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "kms:DescribeKey",
-                "kms:ReEncrypt*",
-                "kms:Decrypt"
-            ],
-            "Resource": "${ami_kms_key_arn}"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "kms:CreateGrant"
-            ],
-            "Resource": "${ami_kms_key_arn}",
-            "Condition": {
-                "Bool": {
-                    "aws:ViaAWSService": "true"
-                }
-            }
-%{ endif ~}
-        }
+        }%{ for statement in extra_statements ~},
+        ${jsonencode(statement)}%{ endfor ~}
+
     ]
 }
