@@ -3,6 +3,7 @@ import { createSingleMetric, logger } from '@aws-github-runner/aws-powertools-ut
 import { MetricUnit } from '@aws-lambda-powertools/metrics';
 import yn from 'yn';
 import { getParameter } from '@aws-github-runner/aws-ssm-util';
+import { splitParameterNames } from './parameter-names';
 
 // Cache the app ID per app index to avoid repeated SSM calls across Lambda invocations.
 // In multi-app mode PARAMETER_GITHUB_APP_ID_NAME is a ':'-joined list of SSM param names,
@@ -12,7 +13,7 @@ const appIdPromises = new Map<number, Promise<string>>();
 async function getAppId(appIndex = 0): Promise<string> {
   let cached = appIdPromises.get(appIndex);
   if (!cached) {
-    const paramName = process.env.PARAMETER_GITHUB_APP_ID_NAME.split(':')[appIndex];
+    const paramName = splitParameterNames(process.env.PARAMETER_GITHUB_APP_ID_NAME)[appIndex];
     cached = getParameter(paramName);
     appIdPromises.set(appIndex, cached);
   }

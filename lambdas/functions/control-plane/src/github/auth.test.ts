@@ -229,6 +229,27 @@ describe('Test createGithubAppAuth', () => {
     expect(result.token).toBe(token);
   });
 
+  it('Reads app credentials from Secrets Manager references', async () => {
+    const secret = 'arn:aws:secretsmanager:us-east-1:123456789012:secret:app-AbCdEf';
+    process.env.PARAMETER_GITHUB_APP_ID_NAME = `${secret}#id`;
+    process.env.PARAMETER_GITHUB_APP_KEY_BASE64_NAME = `${secret}#base64`;
+    mockedGetParameters.mockResolvedValueOnce(
+      new Map([
+        [`${secret}#id`, GITHUB_APP_ID],
+        [`${secret}#base64`, b64],
+      ]),
+    );
+    const mockedAuth = vi.fn();
+    mockedAuth.mockResolvedValue({ token });
+    mockedCreatAppAuth.mockReturnValue(Object.assign(mockedAuth, { hook: vi.fn() }));
+
+    const result = await createGithubAppAuth(installationId);
+
+    expect(getParameters).toBeCalledWith([`${secret}#id`, `${secret}#base64`]);
+    expect((mockedCreatAppAuth.mock.calls[0][0] as Record<string, unknown>).appId).toBe(parseInt(GITHUB_APP_ID));
+    expect(result.token).toBe(token);
+  });
+
   it('Creates auth object for Enterprise Server', async () => {
     // Arrange
     const githubServerUrl = 'https://github.enterprise.notgoingtowork';
