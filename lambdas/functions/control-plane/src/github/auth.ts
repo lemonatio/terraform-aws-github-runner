@@ -23,6 +23,7 @@ import { retry } from '@octokit/plugin-retry';
 import { throttling } from '@octokit/plugin-throttling';
 import { createChildLogger } from '@aws-github-runner/aws-powertools-util';
 import { getParameters } from '@aws-github-runner/aws-ssm-util';
+import { splitParameterNames } from './parameter-names';
 import { EndpointDefaults } from '@octokit/types';
 
 const logger = createChildLogger('gh-auth');
@@ -84,9 +85,9 @@ async function loadAppCredentials(): Promise<GitHubAppCredential[]> {
   if (!process.env.PARAMETER_GITHUB_APP_KEY_BASE64_NAME) {
     throw new Error('Environment variable PARAMETER_GITHUB_APP_KEY_BASE64_NAME is not set');
   }
-  const idParams = process.env.PARAMETER_GITHUB_APP_ID_NAME.split(':').filter(Boolean);
-  const keyParams = process.env.PARAMETER_GITHUB_APP_KEY_BASE64_NAME.split(':').filter(Boolean);
-  const installationIdParams = (process.env.PARAMETER_GITHUB_APP_INSTALLATION_ID_NAME || '').split(':');
+  const idParams = splitParameterNames(process.env.PARAMETER_GITHUB_APP_ID_NAME).filter(Boolean);
+  const keyParams = splitParameterNames(process.env.PARAMETER_GITHUB_APP_KEY_BASE64_NAME).filter(Boolean);
+  const installationIdParams = splitParameterNames(process.env.PARAMETER_GITHUB_APP_INSTALLATION_ID_NAME || '');
   if (idParams.length !== keyParams.length) {
     throw new Error(`GitHub App parameter count mismatch: ${idParams.length} IDs vs ${keyParams.length} keys`);
   }
