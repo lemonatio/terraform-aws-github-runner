@@ -445,4 +445,27 @@ describe('Test getStoredInstallationId', () => {
     const result1 = await getStoredInstallationId(1);
     expect(result1).toBe(67890);
   });
+
+  it('loads installation IDs for multi-app setup mixing Secrets Manager and SSM', async () => {
+    const app1IdParam = `/actions-runner/${ENVIRONMENT}/github_app_id`;
+    const app1KeyParam = `/actions-runner/${ENVIRONMENT}/github_app_key_base64`;
+    const secret = 'arn:aws:secretsmanager:us-east-1:123456789012:secret:app-AbCdEf';
+
+    process.env.PARAMETER_GITHUB_APP_ID_NAME = `${app1IdParam}:${secret}#id`;
+    process.env.PARAMETER_GITHUB_APP_KEY_BASE64_NAME = `${app1KeyParam}:${secret}#base64`;
+    process.env.PARAMETER_GITHUB_APP_INSTALLATION_ID_NAME = `:${secret}#installation_id`;
+
+    mockedGetParameters.mockResolvedValueOnce(
+      new Map([
+        [app1IdParam, '1'],
+        [app1KeyParam, b64],
+        [`${secret}#id`, '2'],
+        [`${secret}#base64`, b64],
+        [`${secret}#installation_id`, '67890'],
+      ]),
+    );
+
+    expect(await getStoredInstallationId(0)).toBeUndefined();
+    expect(await getStoredInstallationId(1)).toBe(67890);
+  });
 });

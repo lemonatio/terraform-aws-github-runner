@@ -6,8 +6,8 @@ import { getParameter } from '@aws-github-runner/aws-ssm-util';
 import { splitParameterNames } from './parameter-names';
 
 // Cache the app ID per app index to avoid repeated SSM calls across Lambda invocations.
-// In multi-app mode PARAMETER_GITHUB_APP_ID_NAME is a ':'-joined list of SSM param names,
-// one per app in app-index order; index 0 is the primary app.
+// In multi-app mode PARAMETER_GITHUB_APP_ID_NAME is a ':'-joined list of SSM param names or
+// Secrets Manager references, one per app in app-index order; index 0 is the primary app.
 const appIdPromises = new Map<number, Promise<string>>();
 
 async function getAppId(appIndex = 0): Promise<string> {

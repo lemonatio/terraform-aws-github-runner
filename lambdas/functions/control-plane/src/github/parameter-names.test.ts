@@ -8,10 +8,6 @@ describe('splitParameterNames', () => {
     expect(splitParameterNames('/app/id:/app2/id')).toEqual(['/app/id', '/app2/id']);
   });
 
-  it('keeps a Secrets Manager reference whole', () => {
-    expect(splitParameterNames(`${secret}#id`)).toEqual([`${secret}#id`]);
-  });
-
   it('splits a mix of references and SSM names', () => {
     expect(splitParameterNames(`${secret}#id:/app2/id:${secret}`)).toEqual([`${secret}#id`, '/app2/id', secret]);
   });
